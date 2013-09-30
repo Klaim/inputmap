@@ -17,6 +17,13 @@ enum MyActions
 ,	ACTION_C
 };
 
+enum SpecialActions
+{
+	SPECIAL_A
+,   SPECIAL_B
+,   SPECIAL_C
+};
+
 enum MyModes
 {
 	MODE_X
@@ -30,6 +37,17 @@ std::string to_string( const MyActions action )
 	case( MyActions::ACTION_A ) : return "ACTION_A";
 	case( MyActions::ACTION_B ) : return "ACTION_B";
 	case( MyActions::ACTION_C ) : return "ACTION_C";
+	default: return "UNKNOWN_ACTION";
+	}
+}
+
+std::string to_string( const SpecialActions action )
+{
+	switch( action )
+	{
+	case( SpecialActions::SPECIAL_A ) : return "ACTION_A";
+	case( SpecialActions::SPECIAL_B ) : return "ACTION_B";
+	case( SpecialActions::SPECIAL_C ) : return "ACTION_C";
 	default: return "UNKNOWN_ACTION";
 	}
 }
@@ -170,8 +188,9 @@ namespace input  {
 
 	};
 
-	class Condition;
-	using ConditionSet = boost::container::flat_set<Condition>;
+	template< class... UpdateArgs > class Condition;
+	template< class... UpdateArgs >
+	using ConditionSet = boost::container::flat_set<Condition<UpdateArgs...>>;
 
 	enum class KeyId { ESCAPE, CTRL, ENTER, A, B, C, D, E, F, G, H, I, count };
 	enum class KeyState { UP, DOWN };
@@ -207,6 +226,7 @@ namespace input  {
 
 	};
 
+	template< class... UpdateArgs >
 	class Condition
 	{
 	public:
@@ -253,18 +273,18 @@ namespace input  {
 		}
 
 
-		ActionSet operator()( const InputUpdateInfo& update_info )
+		ActionSet operator()( const UpdateArgs&... update_info )
 		{
 			ActionSet actions_triggered;
 			auto& predicate = *m_predicate;
 			
-			if( predicate( update_info ) )
+			if( predicate( update_info... ) )
 			{
 				actions_triggered = m_actions;
 
 				for( auto& next_condition : m_next_conditions )
 				{
-					const auto triggered_actions = next_condition( update_info );
+					const auto triggered_actions = next_condition( update_info... );
 					actions_triggered.insert( triggered_actions );
 				}
 			}
@@ -300,7 +320,7 @@ namespace input  {
 		struct Predicate 
 		{
 			virtual bool operator==( const Predicate& other ) const = 0;
-			virtual bool operator()( const InputUpdateInfo& update_info ) = 0;
+			virtual bool operator()( const UpdateArgs&... update_info ) = 0;
 		};
 
 		template< class Impl >
@@ -310,9 +330,9 @@ namespace input  {
 
 			PredicateImpl( Impl impl ) : m_impl( std::move( impl ) ) {}
 
-			bool operator()( const InputUpdateInfo& update_info ) override 
+			bool operator()( const UpdateArgs&... update_info ) override 
 			{
-				return m_impl( update_info );
+				return m_impl( update_info... );
 			}
 			
 			bool operator==( const Predicate& other ) const override
@@ -326,7 +346,7 @@ namespace input  {
 		};
 
 		std::unique_ptr<Predicate> m_predicate;
-		ConditionSet m_next_conditions;
+		ConditionSet<UpdateArgs...> m_next_conditions;
 		ActionSet m_actions;
 
 	};
@@ -348,16 +368,18 @@ namespace input  {
 		}
 	};
 	
+	template< class... UpdateArgs >
 	class InputMap
 	{
 	public:
+		using Condition = Condition<UpdateArgs...>;
 
-		ActionSet operator()( const InputUpdateInfo& update_info )
+		ActionSet operator()( const UpdateArgs&... update_info )
 		{
 			ActionSet triggered_actions;
 			for( auto& condition : m_root_conditions )
 			{
-				const auto additional_actions = condition( update_info );
+				const auto additional_actions = condition( update_info... );
 				triggered_actions.insert( additional_actions );
 			}
 			return triggered_actions;
@@ -379,7 +401,7 @@ namespace input  {
 		}
 		
 	private:
-		ConditionSet m_root_conditions;
+		ConditionSet<UpdateArgs...> m_root_conditions;
 	};
 
 
@@ -389,7 +411,7 @@ namespace input  {
 int main()
 {
 	using namespace input;
-	input::InputMap input_map;
+	input::InputMap<InputUpdateInfo> input_map;
 	
 	input_map.on( KeyIsDown{ KeyId::ESCAPE } ).trigger( MyActions::ACTION_A );
 	input_map.on( KeyIsDown{ KeyId::CTRL } ).trigger( MyActions::ACTION_B );
