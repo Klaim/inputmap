@@ -337,9 +337,6 @@ namespace input  {
 			
 			bool operator==( const Predicate& other ) const override
 			{
-				/*const auto other_name = typeid( other ).name();
-				const auto this_name = typeid( PredicateImpl<Impl> ).name();
-*/
 				return typeid( other ) == typeid( *this )
 					&& m_impl == static_cast<const PredicateImpl<Impl>&>(other).m_impl;
 			}
@@ -402,6 +399,7 @@ namespace input  {
 		
 	private:
 		ConditionSet<UpdateArgs...> m_root_conditions;
+		
 	};
 
 
