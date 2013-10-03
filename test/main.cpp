@@ -73,29 +73,29 @@ namespace input  {
 	public:
 
 		template< class FlagType >
-		void add( FlagType&& action )
+		void add( FlagType&& flag_value )
 		{
-			auto& action_set = find_or_create_set<FlagType>();
-			action_set.add( std::forward<FlagType>( action ) );
+			auto& flag_set = find_or_create_set<FlagType>();
+			flag_set.add( std::forward<FlagType>( flag_value ) );
 		}
 
 		template< class FlagType >
-		bool contains( const FlagType& action ) const
+		bool is_active( const FlagType& flag_value ) const
 		{
-			if( auto* action_set = find_set<FlagType>() )
+			if( auto* flag_set = find_set<FlagType>() )
 			{
-				return action_set->contains( action );
+				return flag_set->contains( flag_value );
 			}
 			return false;
 		}
-
+		
 		void insert( const FlagBag& other )
 		{
 			for( const auto& set_pair : other.m_set_index )
 			{
-				if( auto action_set = find_set( set_pair.first ) )
+				if( auto flag_set = find_set( set_pair.first ) )
 				{
-					action_set->insert( *set_pair.second );
+					flag_set->insert( *set_pair.second );
 				}
 				else
 				{
@@ -115,11 +115,11 @@ namespace input  {
 		}
 
 		template< class FlagType >
-		std::vector<FlagType> all()
+		std::vector<FlagType> all() const
 		{
-			if( auto* action_set = find_set<FlagType>() )
+			if( auto* flag_set = find_set<FlagType>() )
 			{
-				return action_set->actions();
+				return flag_set->values();
 			}
 			return{};
 		}
@@ -137,39 +137,39 @@ namespace input  {
 		template< class T > 
 		class SetOf : public Set
 		{
-			boost::container::flat_set<T> m_actions;
+			boost::container::flat_set<T> m_values;
 		public:
 			SetOf() = default;
 
 			template< class Iterator >
 			SetOf( Iterator&& it_begin, Iterator&& it_end ) 
-				: m_actions( std::forward<Iterator>( it_begin ), std::forward<Iterator>( it_end ) ) 
+				: m_values( std::forward<Iterator>( it_begin ), std::forward<Iterator>( it_end ) ) 
 			{}
 
-			void add( T value ) { m_actions.emplace( std::move( value ) ); }
-			bool contains( const T& value ) const { return m_actions.find( value ) != end(m_actions); }
+			void add( T value ) { m_values.emplace( std::move( value ) ); }
+			bool contains( const T& value ) const { return m_values.find( value ) != end(m_values); }
 			void insert( const Set& other ) override
 			{ 
 				const auto& specific_set = static_cast<const SetOf<T>&>( other );
-				m_actions.insert( begin( specific_set.m_actions ), end( specific_set.m_actions ) );
+				m_values.insert( begin( specific_set.m_values ), end( specific_set.m_values ) );
 			}
 
 			std::unique_ptr<Set> clone() override
 			{
-				return std::make_unique<SetOf<T>>( begin( m_actions ), end( m_actions ) );
+				return std::make_unique<SetOf<T>>( begin( m_values ), end( m_values ) );
 			}
 			
-			size_t size() const override { return m_actions.size(); }
+			size_t size() const override { return m_values.size(); }
 
-			std::vector<T> actions() const
+			std::vector<T> values() const
 			{
-				return { begin( m_actions ), end( m_actions ) };
+				return { begin( m_values ), end( m_values ) };
 			}
 		};
 
 		boost::container::flat_map<std::type_index, std::shared_ptr<Set>> m_set_index;
 
-		Set* find_set( std::type_index type_id )
+		Set* find_set( std::type_index type_id ) const
 		{
 			auto find_it = m_set_index.find( type_id );
 			if( find_it != end( m_set_index ) )
@@ -182,7 +182,7 @@ namespace input  {
 
 		
 		template< class T >
-		SetOf<T>* find_set() { return static_cast<SetOf<T>*>( find_set( typeid(T) ) ); }
+		SetOf<T>* find_set() const { return static_cast<SetOf<T>*>( find_set( typeid(T) ) ); }
 
 		template< class T >
 		SetOf<T>& find_or_create_set()
@@ -205,7 +205,7 @@ namespace input  {
 	template< class FlagType >
 	using FlagSet = boost::container::flat_set<FlagType>;
 
-	enum class KeyId { ESCAPE, CTRL, ENTER, A, B, C, D, E, F, G, H, I, count };
+	enum class KeyId { ESCAPE, CTRL, ENTER, A, B, C, D, E, F, G, H, I, X, Y, count };
 	enum class KeyState { UP, DOWN };
 
 	class InputUpdateInfo 
@@ -297,8 +297,8 @@ namespace input  {
 
 				for( auto& next_condition : m_next_conditions )
 				{
-					const auto triggered_actions = next_condition( update_info... );
-					flags_triggered.insert( triggered_actions );
+					const auto triggered_flags = next_condition( update_info... );
+					flags_triggered.insert( triggered_flags );
 				}
 			}
 
@@ -361,22 +361,6 @@ namespace input  {
 
 	};
 
-	class KeyIsDown
-	{
-		KeyId m_key;
-	public:
-		explicit KeyIsDown( KeyId key_id ) : m_key( std::move(key_id) ) {}
-
-		bool operator()( const InputUpdateInfo& info ) const
-		{
-			return info.keyboard().is_down( m_key );
-		}
-
-		bool operator==( const KeyIsDown& other ) const 
-		{ 
-			return m_key == other.m_key; 
-		}
-	};
 	
 	template< class... UpdateArgs >
 	class ConditionMap
@@ -414,6 +398,40 @@ namespace input  {
 		
 	};
 
+	class KeyIsDown
+	{
+		KeyId m_key;
+	public:
+		explicit KeyIsDown( KeyId key_id ) : m_key( std::move( key_id ) ) {}
+
+		template< class... Blahblah >
+		bool operator()( const InputUpdateInfo& info, const Blahblah&... ) const
+		{
+			return info.keyboard().is_down( m_key );
+		}
+
+		bool operator==( const KeyIsDown& other ) const
+		{
+			return m_key == other.m_key;
+		}
+	};
+
+	class IsModeActive
+	{
+		MyModes m_mode;
+	public:
+		explicit IsModeActive( MyModes mode ) : m_mode( std::move( mode ) ) {}
+
+		bool operator()( const InputUpdateInfo& info, const FlagBag& flags ) const
+		{
+			return flags.is_active( m_mode );
+		}
+
+		bool operator==( const IsModeActive& other ) const
+		{
+			return m_mode == other.m_mode;
+		}
+	};
 
 }
 
@@ -421,9 +439,9 @@ namespace input  {
 int main()
 {
 	using namespace input;
-	input::ConditionMap<InputUpdateInfo> input_map;
-	input::ConditionMap<> mode_map;
-	
+	input::ConditionMap<InputUpdateInfo> mode_map;
+	input::ConditionMap<InputUpdateInfo, FlagBag> input_map;
+		
 	input_map.on( KeyIsDown{ KeyId::ESCAPE } ).activate( MyActions::ACTION_A );
 	input_map.on( KeyIsDown{ KeyId::CTRL } ).activate( MyActions::ACTION_B );
 	input_map.on( KeyIsDown{ KeyId::CTRL } )
@@ -433,15 +451,21 @@ int main()
 	input_map.on( KeyIsDown{ KeyId::CTRL } )
 		.and_on( KeyIsDown{ KeyId::F } )
 		.activate( SpecialActions::SPECIAL_A );
+
+	input_map.on( IsModeActive{ MyModes::MODE_X } )
+		.activate( SpecialActions::SPECIAL_B );
 	
+	mode_map.on( KeyIsDown{ KeyId::X } ).activate( MyModes::MODE_X );
+	mode_map.on( KeyIsDown{ KeyId::Y } ).activate( MyModes::MODE_Y );
+
 	InputUpdateInfo info;
 	
 	auto evaluate_mapping = [&] {
-		auto active_flags = input_map( info );
-		active_flags.insert( mode_map() );
+		const auto mode_flags = mode_map( info );
+		const auto active_flags = input_map( info, mode_flags );
 
 		std::cout << "TRIGGERED MODES: " << std::endl;
-		for( const auto& mode : active_flags.all<MyModes>() )
+		for( const auto& mode : mode_flags.all<MyModes>() )
 		{
 			std::cout << " - " << to_string( mode ) << std::endl;
 		}
@@ -490,6 +514,9 @@ int main()
 	info.keyboard().clear();
 	info.keyboard().push_down( KeyId::CTRL );
 	info.keyboard().push_down( KeyId::F );
+	evaluate_mapping();
+
+	info.keyboard().push_down( KeyId::X );
 	evaluate_mapping();
 
 
