@@ -45,10 +45,20 @@ std::string to_string( const SpecialActions action )
 {
 	switch( action )
 	{
-	case( SpecialActions::SPECIAL_A ) : return "ACTION_A";
-	case( SpecialActions::SPECIAL_B ) : return "ACTION_B";
-	case( SpecialActions::SPECIAL_C ) : return "ACTION_C";
-	default: return "UNKNOWN_ACTION";
+	case( SpecialActions::SPECIAL_A ) : return "SPECIAL_A";
+	case( SpecialActions::SPECIAL_B ) : return "SPECIAL_B";
+	case( SpecialActions::SPECIAL_C ) : return "SPECIAL_C";
+	default: return "UNKNOWN_SPECIAL";
+	}
+}
+
+std::string to_string( const MyModes mode )
+{
+	switch( mode )
+	{
+	case( MyModes::MODE_X ) : return "MODE_X";
+	case( MyModes::MODE_Y ) : return "MODE_Y";
+	default: return "UNKNOWN_MODE";
 	}
 }
 
