@@ -68,28 +68,28 @@ namespace input  {
 	using InputClock = std::chrono::high_resolution_clock;
 	using TimePoint = InputClock::time_point;
 	
-	class MultiSet
+	class FlagBag
 	{
 	public:
 
-		template< class ActionType >
-		void add( ActionType&& action )
+		template< class FlagType >
+		void add( FlagType&& action )
 		{
-			auto& action_set = find_or_create_set<ActionType>();
-			action_set.add( std::forward<ActionType>( action ) );
+			auto& action_set = find_or_create_set<FlagType>();
+			action_set.add( std::forward<FlagType>( action ) );
 		}
 
-		template< class ActionType >
-		bool contains( const ActionType& action ) const
+		template< class FlagType >
+		bool contains( const FlagType& action ) const
 		{
-			if( auto* action_set = find_set<ActionType>() )
+			if( auto* action_set = find_set<FlagType>() )
 			{
 				return action_set->contains( action );
 			}
 			return false;
 		}
 
-		void insert( const MultiSet& other )
+		void insert( const FlagBag& other )
 		{
 			for( const auto& set_pair : other.m_set_index )
 			{
@@ -114,10 +114,10 @@ namespace input  {
 			return total;
 		}
 
-		template< class ActionType >
-		std::vector<ActionType> all()
+		template< class FlagType >
+		std::vector<FlagType> all()
 		{
-			if( auto* action_set = find_set<ActionType>() )
+			if( auto* action_set = find_set<FlagType>() )
 			{
 				return action_set->actions();
 			}
@@ -202,6 +202,9 @@ namespace input  {
 	template< class... UpdateArgs >
 	using ConditionSet = boost::container::flat_set<Condition<UpdateArgs...>>;
 
+	template< class FlagType >
+	using FlagSet = boost::container::flat_set<FlagType>;
+
 	enum class KeyId { ESCAPE, CTRL, ENTER, A, B, C, D, E, F, G, H, I, count };
 	enum class KeyState { UP, DOWN };
 
@@ -250,7 +253,7 @@ namespace input  {
 		}
 
 		Condition( Condition&& other )
-			: m_actions( std::move( other.m_actions ) )
+			: m_flags( std::move( other.m_flags ) )
 			, m_next_conditions( std::move( other.m_next_conditions ) )
 			, m_predicate( std::move(other.m_predicate) )
 		{
@@ -260,7 +263,7 @@ namespace input  {
 		Condition& operator=( Condition&& other )
 		{
 			std::cout << "CONDITION=(&&)" << std::endl;
-			m_actions = std::move( other.m_actions );
+			m_flags = std::move( other.m_flags );
 			m_next_conditions = std::move( other.m_next_conditions );
 			m_predicate = std::move( other.m_predicate );
 			return *this;
@@ -283,28 +286,28 @@ namespace input  {
 		}
 
 
-		MultiSet operator()( const UpdateArgs&... update_info )
+		FlagBag operator()( const UpdateArgs&... update_info )
 		{
-			MultiSet actions_triggered;
+			FlagBag flags_triggered;
 			auto& predicate = *m_predicate;
 			
 			if( predicate( update_info... ) )
 			{
-				actions_triggered = m_actions;
+				flags_triggered = m_flags;
 
 				for( auto& next_condition : m_next_conditions )
 				{
 					const auto triggered_actions = next_condition( update_info... );
-					actions_triggered.insert( triggered_actions );
+					flags_triggered.insert( triggered_actions );
 				}
 			}
 
-			return actions_triggered;
+			return flags_triggered;
 		}
 
 
-		template< class ActionType >
-		void trigger( ActionType&& action ) { m_actions.add( std::forward<ActionType>( action ) ); }
+		template< class FlagType >
+		void activate( FlagType&& flag ) { m_flags.add( std::forward<FlagType>( flag ) ); }
 		
 		template< class PredicateType >
 		Condition& and_on( PredicateType&& predicate )
@@ -322,7 +325,7 @@ namespace input  {
 
 		bool operator<( const Condition& other ) const
 		{
-			return m_next_conditions.size() + m_actions.size() < other.m_next_conditions.size() + other.m_actions.size();
+			return m_next_conditions.size() + m_flags.size() < other.m_next_conditions.size() + other.m_flags.size();
 		}
 
 	private:
@@ -354,7 +357,7 @@ namespace input  {
 
 		std::unique_ptr<Predicate> m_predicate;
 		ConditionSet<UpdateArgs...> m_next_conditions;
-		MultiSet m_actions;
+		FlagBag m_flags;
 
 	};
 
@@ -381,9 +384,9 @@ namespace input  {
 	public:
 		using Condition = Condition<UpdateArgs...>;
 
-		MultiSet operator()( const UpdateArgs&... update_info )
+		FlagBag operator()( const UpdateArgs&... update_info )
 		{
-			MultiSet triggered_actions;
+			FlagBag triggered_actions;
 			for( auto& condition : m_root_conditions )
 			{
 				const auto additional_actions = condition( update_info... );
@@ -421,37 +424,36 @@ int main()
 	input::ConditionMap<InputUpdateInfo> input_map;
 	input::ConditionMap<> mode_map;
 	
-	input_map.on( KeyIsDown{ KeyId::ESCAPE } ).trigger( MyActions::ACTION_A );
-	input_map.on( KeyIsDown{ KeyId::CTRL } ).trigger( MyActions::ACTION_B );
+	input_map.on( KeyIsDown{ KeyId::ESCAPE } ).activate( MyActions::ACTION_A );
+	input_map.on( KeyIsDown{ KeyId::CTRL } ).activate( MyActions::ACTION_B );
 	input_map.on( KeyIsDown{ KeyId::CTRL } )
 		.and_on( KeyIsDown{ KeyId::ENTER } )
-		.trigger( MyActions::ACTION_C );
+		.activate( MyActions::ACTION_C );
 	
 	input_map.on( KeyIsDown{ KeyId::CTRL } )
 		.and_on( KeyIsDown{ KeyId::F } )
-		.trigger( SpecialActions::SPECIAL_A );
-
-
+		.activate( SpecialActions::SPECIAL_A );
+	
 	InputUpdateInfo info;
 	
 	auto evaluate_mapping = [&] {
-		auto triggered_actions = input_map( info );
-		auto triggered_modes = mode_map();
+		auto active_flags = input_map( info );
+		active_flags.insert( mode_map() );
 
 		std::cout << "TRIGGERED MODES: " << std::endl;
-		for( const auto& mode : triggered_modes.all<MyModes>() )
+		for( const auto& mode : active_flags.all<MyModes>() )
 		{
 			std::cout << " - " << to_string( mode ) << std::endl;
 		}
 		
 		std::cout << "TRIGGERED ACTIONS: " << std::endl;
-		for( const auto& action : triggered_actions.all<MyActions>() )
+		for( const auto& action : active_flags.all<MyActions>() )
 		{
 			std::cout << " - " << to_string(action) << std::endl;
 		}
 
 		std::cout << "TRIGGERED SPECIAL: " << std::endl;
-		for( const auto& action : triggered_actions.all<SpecialActions>() )
+		for( const auto& action : active_flags.all<SpecialActions>() )
 		{
 			std::cout << " - " << to_string( action ) << std::endl;
 		}
