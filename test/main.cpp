@@ -68,7 +68,7 @@ namespace input  {
 	using InputClock = std::chrono::high_resolution_clock;
 	using TimePoint = InputClock::time_point;
 	
-	class ActionSet
+	class MultiSet
 	{
 	public:
 
@@ -89,7 +89,7 @@ namespace input  {
 			return false;
 		}
 
-		void insert( const ActionSet& other )
+		void insert( const MultiSet& other )
 		{
 			for( const auto& set_pair : other.m_set_index )
 			{
@@ -283,9 +283,9 @@ namespace input  {
 		}
 
 
-		ActionSet operator()( const UpdateArgs&... update_info )
+		MultiSet operator()( const UpdateArgs&... update_info )
 		{
-			ActionSet actions_triggered;
+			MultiSet actions_triggered;
 			auto& predicate = *m_predicate;
 			
 			if( predicate( update_info... ) )
@@ -354,7 +354,7 @@ namespace input  {
 
 		std::unique_ptr<Predicate> m_predicate;
 		ConditionSet<UpdateArgs...> m_next_conditions;
-		ActionSet m_actions;
+		MultiSet m_actions;
 
 	};
 
@@ -381,9 +381,9 @@ namespace input  {
 	public:
 		using Condition = Condition<UpdateArgs...>;
 
-		ActionSet operator()( const UpdateArgs&... update_info )
+		MultiSet operator()( const UpdateArgs&... update_info )
 		{
-			ActionSet triggered_actions;
+			MultiSet triggered_actions;
 			for( auto& condition : m_root_conditions )
 			{
 				const auto additional_actions = condition( update_info... );
