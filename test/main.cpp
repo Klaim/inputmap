@@ -115,7 +115,7 @@ namespace input  {
 		}
 
 		template< class ActionType >
-		std::vector<ActionType> all_actions()
+		std::vector<ActionType> all()
 		{
 			if( auto* action_set = find_set<ActionType>() )
 			{
