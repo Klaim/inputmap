@@ -376,7 +376,7 @@ namespace input  {
 	};
 	
 	template< class... UpdateArgs >
-	class InputMap
+	class ConditionMap
 	{
 	public:
 		using Condition = Condition<UpdateArgs...>;
@@ -418,8 +418,8 @@ namespace input  {
 int main()
 {
 	using namespace input;
-	input::InputMap<InputUpdateInfo> input_map;
-	input::InputMap<> mode_map;
+	input::ConditionMap<InputUpdateInfo> input_map;
+	input::ConditionMap<> mode_map;
 	
 	input_map.on( KeyIsDown{ KeyId::ESCAPE } ).trigger( MyActions::ACTION_A );
 	input_map.on( KeyIsDown{ KeyId::CTRL } ).trigger( MyActions::ACTION_B );
