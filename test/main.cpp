@@ -392,7 +392,6 @@ namespace input  {
 			return triggered_actions;
 		}
 
-
 		template< class PredicateType >
 		Condition& on( PredicateType&& predicate )
 		{
@@ -406,7 +405,7 @@ namespace input  {
 			auto condition_it = m_root_conditions.emplace( std::forward<PredicateType>(predicate) ).first;
 			return *condition_it;
 		}
-		
+				
 	private:
 		ConditionSet<UpdateArgs...> m_root_conditions;
 		
@@ -420,55 +419,76 @@ int main()
 {
 	using namespace input;
 	input::InputMap<InputUpdateInfo> input_map;
+	input::InputMap<> mode_map;
 	
 	input_map.on( KeyIsDown{ KeyId::ESCAPE } ).trigger( MyActions::ACTION_A );
 	input_map.on( KeyIsDown{ KeyId::CTRL } ).trigger( MyActions::ACTION_B );
 	input_map.on( KeyIsDown{ KeyId::CTRL } )
 		.and_on( KeyIsDown{ KeyId::ENTER } )
 		.trigger( MyActions::ACTION_C );
+	
+	input_map.on( KeyIsDown{ KeyId::CTRL } )
+		.and_on( KeyIsDown{ KeyId::F } )
+		.trigger( SpecialActions::SPECIAL_A );
+
 
 	InputUpdateInfo info;
 	
-	auto evaluate_input_map = [&] {
+	auto evaluate_mapping = [&] {
 		auto triggered_actions = input_map( info );
+		auto triggered_modes = mode_map();
 
-		std::cout << "TRIGGERED ACTIONS: " << std::endl;
-		/*for( const auto& action : triggered_actions )
+		std::cout << "TRIGGERED MODES: " << std::endl;
+		for( const auto& mode : triggered_modes.all<MyModes>() )
 		{
-			std::cout << " - " << to_string(action) << std::endl;
-		}*/
-		for( const auto& action : triggered_actions.all_actions<MyActions>() )
+			std::cout << " - " << to_string( mode ) << std::endl;
+		}
+		
+		std::cout << "TRIGGERED ACTIONS: " << std::endl;
+		for( const auto& action : triggered_actions.all<MyActions>() )
 		{
 			std::cout << " - " << to_string(action) << std::endl;
 		}
+
+		std::cout << "TRIGGERED SPECIAL: " << std::endl;
+		for( const auto& action : triggered_actions.all<SpecialActions>() )
+		{
+			std::cout << " - " << to_string( action ) << std::endl;
+		}
+		std::cout << "----------------------------------" << std::endl;
 	};
 
 	info.keyboard().push_down( KeyId::ESCAPE );
-	evaluate_input_map();
+	evaluate_mapping();
 
 	info.clear();
 	info.keyboard().push_down( KeyId::CTRL );
-	evaluate_input_map();
+	evaluate_mapping();
 
 	info.clear();
-	evaluate_input_map();
+	evaluate_mapping();
 
 	info.clear();
 	info.keyboard().push_down( KeyId::ESCAPE );
-	evaluate_input_map();
+	evaluate_mapping();
 
 	info.clear();
 	info.keyboard().push_down( KeyId::ENTER );
-	evaluate_input_map();
+	evaluate_mapping();
 
 	info.keyboard().push_down( KeyId::CTRL );
-	evaluate_input_map();
+	evaluate_mapping();
 
 	info.keyboard().push_down( KeyId::ESCAPE );
-	evaluate_input_map();
+	evaluate_mapping();
 
 	info.keyboard().release( KeyId::CTRL );
-	evaluate_input_map();
+	evaluate_mapping();
+
+	info.keyboard().clear();
+	info.keyboard().push_down( KeyId::CTRL );
+	info.keyboard().push_down( KeyId::F );
+	evaluate_mapping();
 
 
 	/*input_map.on( KeyDown( Key_Ctrl ) ).and( KeyUp( Key_T ) ).activate_mode( "TextMode");
